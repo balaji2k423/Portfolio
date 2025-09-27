@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Minimize2, Maximize2, Bot, Sparkles, MessageCircle } from 'lucide-react';
 
-const SolaraChatbot = ({ siriGif, profilePic }) => {
+const SolaraChatbot = ({ siriGif, profilePic, backgroundImage, apiKey }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -9,6 +9,17 @@ const SolaraChatbot = ({ siriGif, profilePic }) => {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
   const synth = useRef(window.speechSynthesis);
+
+  // Common Q&A pairs (only for basic greetings and simple responses)
+  const commonQuestions = {
+    "hello": "Hello! I'm Solara, your AI assistant. How can I help you today?",
+    "hi": "Hi there! I'm here to assist you with any questions you might have.",
+    "hey": "Hey! Great to see you here. What can I help you with?",
+    "bye": "Goodbye! It was nice chatting with you. Feel free to come back anytime!",
+    "goodbye": "Goodbye! Have a wonderful day and don't hesitate to reach out if you need anything.",
+    "thanks": "You're welcome! Happy to help anytime.",
+    "thank you": "You're very welcome! I'm glad I could help. Is there anything else you'd like to know?"
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -51,17 +62,130 @@ const SolaraChatbot = ({ siriGif, profilePic }) => {
     setMessages([]);
   };
 
-  const generateBotResponse = (userMessage) => {
-    const responses = [
-      "I'm here to help! What would you like to know?",
-      "That's an interesting question. Let me assist you with that.",
-      "I'd be happy to help you with that. Could you provide more details?",
-      "Great question! I'm processing that for you.",
-      "I understand what you're asking. Here's what I can tell you...",
-      "Thanks for reaching out! I'm here to assist you.",
-    ];
+  // Check for common questions first (exact matches only)
+  const checkCommonQuestions = (userMessage) => {
+    const message = userMessage.toLowerCase().trim();
     
-    return responses[Math.floor(Math.random() * responses.length)];
+    // Check for exact matches only - no partial matching for questions
+    if (commonQuestions[message]) {
+      return commonQuestions[message];
+    }
+    
+    // Only check for very specific greeting patterns
+    if (message === 'hi' || message === 'hello' || message === 'hey') {
+      return commonQuestions[message];
+    }
+    
+    // Return null for everything else to trigger API call
+    return null;
+  };
+
+  // Fallback responses for when API fails
+  const fallbackResponses = [
+    "That's an interesting question! Let me think about that for a moment.",
+    "I understand what you're asking. Based on my knowledge, I'd say that's something worth exploring further.",
+    "Great question! While I don't have all the details right now, I can tell you that this topic is quite fascinating.",
+    "I appreciate you asking that. From what I know, there are several ways to approach this.",
+    "That's a thoughtful question. I'd be happy to help you explore this topic further.",
+    "Interesting point! This is definitely something that many people wonder about.",
+    "I can see why you'd ask that. It's a topic that has many different perspectives.",
+    "That's a great question to consider. There are usually multiple factors at play with something like this."
+  ];
+
+  // DeepSeek API call function
+  const callAIAPI = async (userMessage) => {
+    console.log('Calling DeepSeek API for message:', userMessage);
+    
+    try {
+      // Use the API key passed as prop
+      const API_KEY = apiKey || "sk-c13bc6c43ea24abb8fa51e0f2fa51376"; // Replace with your actual DeepSeek API key
+      
+      if (!apiKey) {
+        console.warn('No API key provided as prop');
+        return "Please provide your DeepSeek API key to enable AI responses.";
+      }
+
+      console.log('Making request to DeepSeek API...');
+
+      const response = await fetch('https://api.deepseek.com/v1', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat', // DeepSeek's chat model
+          messages: [
+            {
+              role: 'system',
+              content: 'You are Solara, a helpful AI assistant. Provide concise, friendly, and helpful responses. Keep your answers informative but not too long.'
+            },
+            {
+              role: 'user',
+              content: userMessage
+            }
+          ],
+          max_tokens: 200,
+          temperature: 0.7,
+          top_p: 1,
+          frequency_penalty: 0,
+          presence_penalty: 0
+        })
+      });
+
+      console.log('DeepSeek API Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('DeepSeek API Error:', errorText);
+        
+        if (response.status === 401) {
+          return "Authentication failed. Please check your DeepSeek API key.";
+        } else if (response.status === 429) {
+          return "Rate limit reached. Please try again in a moment.";
+        } else if (response.status === 400) {
+          return "Invalid request. Please try rephrasing your question.";
+        } else {
+          return `DeepSeek API error (${response.status}). Please try again later.`;
+        }
+      }
+
+      const data = await response.json();
+      console.log('DeepSeek API response received successfully');
+      
+      const aiResponse = data.choices?.[0]?.message?.content;
+      if (!aiResponse) {
+        console.error('No response content in DeepSeek API response');
+        return "I received an empty response. Please try asking your question again.";
+      }
+
+      return aiResponse.trim();
+      
+    } catch (error) {
+      console.error('DeepSeek API Error:', error);
+      
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        return "Network error. Please check your internet connection and try again.";
+      }
+      
+      // Return a contextual fallback response
+      if (userMessage.toLowerCase().includes('what') || userMessage.toLowerCase().includes('how') || userMessage.toLowerCase().includes('why')) {
+        return `That's a thoughtful question about "${userMessage}". I'm having some technical difficulties right now, but I'd be happy to help you explore this topic once I'm back online.`;
+      }
+      
+      return `I understand you're asking about "${userMessage}". I'm experiencing some technical issues right now, but I'd love to help you with this topic!`;
+    }
+  };
+
+  const generateBotResponse = async (userMessage) => {
+    // Check for basic greetings first
+    const commonResponse = checkCommonQuestions(userMessage);
+    if (commonResponse) {
+      return commonResponse;
+    }
+    
+    // For all other messages, call DeepSeek API
+    return await callAIAPI(userMessage);
   };
 
   const handleSendMessage = async () => {
@@ -75,12 +199,12 @@ const SolaraChatbot = ({ siriGif, profilePic }) => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentMessage = inputMessage;
     setInputMessage('');
     setIsTyping(true);
 
-    // Simulate bot response delay
-    setTimeout(() => {
-      const botResponse = generateBotResponse(inputMessage);
+    try {
+      const botResponse = await generateBotResponse(currentMessage);
       const botMessage = {
         id: Date.now() + 1,
         text: botResponse,
@@ -90,8 +214,18 @@ const SolaraChatbot = ({ siriGif, profilePic }) => {
 
       setMessages(prev => [...prev, botMessage]);
       setIsTyping(false);
-      speak(botResponse);
-    }, 1500);
+      setTimeout(() => speak(botResponse), 300);
+    } catch (error) {
+      console.error('Error generating response:', error);
+      const errorMessage = {
+        id: Date.now() + 1,
+        text: "I'm sorry, I encountered an error. Please try again.",
+        sender: 'bot',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      setIsTyping(false);
+    }
   };
 
   const handleKeyPress = (e) => {
@@ -177,7 +311,6 @@ const SolaraChatbot = ({ siriGif, profilePic }) => {
                       <h1 className="text-white font-black text-2xl tracking-wider drop-shadow-lg whitespace-nowrap">
                         SOLARA
                       </h1>
-                      
                     </div>
                     <div className="flex items-center space-x-2">
                       <div className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse shadow-lg flex-shrink-0"></div>
@@ -213,139 +346,26 @@ const SolaraChatbot = ({ siriGif, profilePic }) => {
             {/* Chat content - only visible when not minimized */}
             {!isMinimized && (
               <>
-                {/* SCROLLABLE Messages area with animated nebula background */}
+                {/* Messages area with custom background image */}
                 <div 
                   className="flex-1 p-4 relative overflow-y-auto"
                   style={{
                     scrollbarWidth: 'none',
                     msOverflowStyle: 'none',
+                    backgroundImage: backgroundImage ? `url(${backgroundImage})` : `url('/images/your-default-background.jpg')`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat'
                   }}
                 >
-                  {/* Animated Nebula Background */}
-                  <div className="absolute inset-0 overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/20 via-purple-900/30 to-pink-900/20"></div>
-                    
-                    {/* Nebula Cloud 1 */}
-                    <div 
-                      className="absolute w-96 h-96 rounded-full opacity-30 blur-3xl animate-pulse"
-                      style={{
-                        background: 'radial-gradient(circle, rgba(147, 51, 234, 0.4) 0%, rgba(59, 130, 246, 0.3) 50%, transparent 100%)',
-                        animation: 'float1 20s ease-in-out infinite'
-                      }}
-                    ></div>
-                    
-                    {/* Nebula Cloud 2 */}
-                    <div 
-                      className="absolute w-80 h-80 rounded-full opacity-20 blur-2xl"
-                      style={{
-                        background: 'radial-gradient(circle, rgba(236, 72, 153, 0.4) 0%, rgba(168, 85, 247, 0.3) 50%, transparent 100%)',
-                        top: '60%',
-                        right: '-20%',
-                        animation: 'float2 25s ease-in-out infinite reverse'
-                      }}
-                    ></div>
-                    
-                    {/* Nebula Cloud 3 */}
-                    <div 
-                      className="absolute w-72 h-72 rounded-full opacity-25 blur-xl"
-                      style={{
-                        background: 'radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, rgba(147, 51, 234, 0.2) 50%, transparent 100%)',
-                        bottom: '20%',
-                        left: '-10%',
-                        animation: 'float3 30s ease-in-out infinite'
-                      }}
-                    ></div>
-                    
-                    {/* Moving stars/particles */}
-                    <div className="absolute inset-0">
-                      <div 
-                        className="absolute w-1 h-1 bg-white rounded-full opacity-60"
-                        style={{
-                          top: '20%',
-                          left: '30%',
-                          animation: 'twinkle 3s ease-in-out infinite'
-                        }}
-                      ></div>
-                      <div 
-                        className="absolute w-0.5 h-0.5 bg-indigo-300 rounded-full opacity-40"
-                        style={{
-                          top: '70%',
-                          right: '25%',
-                          animation: 'twinkle 4s ease-in-out infinite 1s'
-                        }}
-                      ></div>
-                      <div 
-                        className="absolute w-1.5 h-1.5 bg-purple-200 rounded-full opacity-50"
-                        style={{
-                          top: '45%',
-                          left: '80%',
-                          animation: 'twinkle 2.5s ease-in-out infinite 2s'
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  {/* CSS Animations */}
+                  {/* Overlay for better text readability */}
+                  <div className="absolute inset-0 bg-white/70 backdrop-blur-sm"></div>
+                  
+                  {/* Hide scrollbar */}
                   <style dangerouslySetInnerHTML={{
                     __html: `
                       .flex-1::-webkit-scrollbar {
                         display: none;
-                      }
-                      
-                      @keyframes float1 {
-                        0%, 100% { 
-                          transform: translate(-20%, -20%) rotate(0deg);
-                          opacity: 0.3;
-                        }
-                        33% { 
-                          transform: translate(10%, -30%) rotate(120deg);
-                          opacity: 0.2;
-                        }
-                        66% { 
-                          transform: translate(-30%, 10%) rotate(240deg);
-                          opacity: 0.4;
-                        }
-                      }
-                      
-                      @keyframes float2 {
-                        0%, 100% { 
-                          transform: translate(20%, 20%) scale(1);
-                          opacity: 0.2;
-                        }
-                        50% { 
-                          transform: translate(-10%, -15%) scale(1.1);
-                          opacity: 0.3;
-                        }
-                      }
-                      
-                      @keyframes float3 {
-                        0%, 100% { 
-                          transform: translate(0%, 0%) rotate(0deg) scale(1);
-                          opacity: 0.25;
-                        }
-                        25% { 
-                          transform: translate(15%, -20%) rotate(90deg) scale(0.9);
-                          opacity: 0.15;
-                        }
-                        50% { 
-                          transform: translate(-10%, -10%) rotate(180deg) scale(1.1);
-                          opacity: 0.35;
-                        }
-                        75% { 
-                          transform: translate(20%, 15%) rotate(270deg) scale(0.95);
-                          opacity: 0.2;
-                        }
-                      }
-                      
-                      @keyframes twinkle {
-                        0%, 100% { 
-                          opacity: 0.6;
-                          transform: scale(1);
-                        }
-                        50% { 
-                          opacity: 1;
-                          transform: scale(1.5);
-                        }
                       }
                     `
                   }} />
