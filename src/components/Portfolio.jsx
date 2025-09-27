@@ -27,7 +27,7 @@ const Portfolio = () => {
       ],
       image: wanderlink,
       status: 'Completed',
-      github: 'https://github.com/balaji2k423/wanderlink',
+      github: 'https://github.com/balaji2k423',
       keyFeatures: [
         'AI-powered travel recommendations',
         'Cross-platform mobile app',
@@ -49,7 +49,7 @@ const Portfolio = () => {
       ],
       image: sarah,
       status: 'Completed',
-      github: 'https://github.com/balaji2k423/chatbot-ticketing',
+      github: 'https://github.com/balaji2k423',
       keyFeatures: [
         'Multilingual chat support (English/Tamil)',
         'Automated ticket generation',
@@ -71,7 +71,7 @@ const Portfolio = () => {
       ],
       image: freshfork,
       status: 'Completed',
-      github: 'https://github.com/balaji2k423/food-ordering',
+      github: 'https://github.com/balaji2k423/',
       keyFeatures: [
         'Real-time order tracking',
         'Razorpay payment integration',
@@ -93,7 +93,7 @@ const Portfolio = () => {
       ],
       image: AI,
       status: 'Completed',
-      github: 'https://github.com/balaji2k423/ai-pdf-extractor',
+      github: 'https://github.com/balaji2k423',
       keyFeatures: [
         'Advanced NLP text processing',
         'Entity recognition system',
@@ -115,7 +115,7 @@ const Portfolio = () => {
       ],
       image: robocon,
       status: 'Completed',
-      github: 'https://github.com/balaji2k423/robocon-2024',
+      github: 'https://github.com/balaji2k423',
       keyFeatures: [
         'Real-time object detection',
         'Color-based sorting algorithm',
@@ -137,7 +137,7 @@ const Portfolio = () => {
       ],
       image: django,
       status: 'Completed',
-      github: 'https://github.com/balaji2k423/django-rest-api',
+      github: 'https://github.com/balaji2k423',
       keyFeatures: [
         'Scalable microservices architecture',
         'Advanced authentication system',
