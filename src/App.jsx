@@ -15,6 +15,7 @@ import SolaraProfile from './assets/solora.png'; // Add your profile pic import 
 import './App.css';
 
 function App() {
+   const API_KEY = "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";
   useEffect(() => {
     AOS.init({
       duration: 1000,
@@ -38,6 +39,7 @@ function App() {
       
       {/* Solara Chatbot Component */}
       <SolaraChatbot 
+        apiKey={API_KEY}
         siriGif={SiriGif} 
         profilePic={SolaraProfile} // Optional: pass your profile picture
       />

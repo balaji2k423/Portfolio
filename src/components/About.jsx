@@ -64,7 +64,7 @@ const About = () => {
 
   const handleResumeDownload = () => {
     // Replace with your actual resume URL
-    const resumeUrl = '/BALAJI RESUME1.pdf'; // Update this with your actual resume file path
+    const resumeUrl = '/BALAJI P..pdf'; // Update this with your actual resume file path
     const link = document.createElement('a');
     link.href = resumeUrl;
     link.download = 'BALAJI RESUME.pdf';

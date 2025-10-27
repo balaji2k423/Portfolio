@@ -65,67 +65,43 @@ const SolaraChatbot = ({ siriGif, profilePic, backgroundImage, apiKey }) => {
   // Check for common questions first (exact matches only)
   const checkCommonQuestions = (userMessage) => {
     const message = userMessage.toLowerCase().trim();
-    
-    // Check for exact matches only - no partial matching for questions
-    if (commonQuestions[message]) {
-      return commonQuestions[message];
-    }
-    
-    // Only check for very specific greeting patterns
-    if (message === 'hi' || message === 'hello' || message === 'hey') {
-      return commonQuestions[message];
-    }
-    
-    // Return null for everything else to trigger API call
-    return null;
+    return commonQuestions[message] || null;
   };
 
-  // Fallback responses for when API fails
-  const fallbackResponses = [
-    "That's an interesting question! Let me think about that for a moment.",
-    "I understand what you're asking. Based on my knowledge, I'd say that's something worth exploring further.",
-    "Great question! While I don't have all the details right now, I can tell you that this topic is quite fascinating.",
-    "I appreciate you asking that. From what I know, there are several ways to approach this.",
-    "That's a thoughtful question. I'd be happy to help you explore this topic further.",
-    "Interesting point! This is definitely something that many people wonder about.",
-    "I can see why you'd ask that. It's a topic that has many different perspectives.",
-    "That's a great question to consider. There are usually multiple factors at play with something like this."
-  ];
-
-  // DeepSeek API call function
+  // OpenAI API call function (works with most OpenAI-compatible APIs)
   const callAIAPI = async (userMessage) => {
-    console.log('Calling DeepSeek API for message:', userMessage);
+    console.log('Calling AI API for message:', userMessage);
     
     try {
-      // Use the API key passed as prop
-      const API_KEY = apiKey || "sk-c13bc6c43ea24abb8fa51e0f2fa51376"; // Replace with your actual DeepSeek API key
-      
-      if (!apiKey) {
+      // Check if API key is provided
+      if (!apiKey || apiKey.trim() === '') {
         console.warn('No API key provided as prop');
-        return "Please provide your DeepSeek API key to enable AI responses.";
+        return "Please provide your API key to enable AI responses.";
       }
 
-      console.log('Making request to DeepSeek API...');
+      console.log('Making request to AI API...');
+      console.log('API Key provided:', apiKey ? 'Yes' : 'No');
 
-      const response = await fetch('https://api.deepseek.com/v1', {
+      // Use OpenAI API endpoint (most compatible)
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`
+          'Authorization': `Bearer ${apiKey.trim()}`
         },
         body: JSON.stringify({
-          model: 'deepseek-chat', // DeepSeek's chat model
+          model: 'gpt-3.5-turbo', // Use a standard model
           messages: [
             {
               role: 'system',
-              content: 'You are Solara, a helpful AI assistant. Provide concise, friendly, and helpful responses. Keep your answers informative but not too long.'
+              content: 'You are Solara, a helpful AI assistant. Provide concise, friendly, and helpful responses. Keep your answers informative but not too long (under 150 words).'
             },
             {
               role: 'user',
               content: userMessage
             }
           ],
-          max_tokens: 200,
+          max_tokens: 150,
           temperature: 0.7,
           top_p: 1,
           frequency_penalty: 0,
@@ -133,58 +109,58 @@ const SolaraChatbot = ({ siriGif, profilePic, backgroundImage, apiKey }) => {
         })
       });
 
-      console.log('DeepSeek API Response status:', response.status);
+      console.log('AI API Response status:', response.status);
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('DeepSeek API Error:', errorText);
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('AI API Error:', errorData);
         
         if (response.status === 401) {
-          return "Authentication failed. Please check your DeepSeek API key.";
+          return "Authentication failed. Please check your API key and make sure it's valid.";
         } else if (response.status === 429) {
           return "Rate limit reached. Please try again in a moment.";
         } else if (response.status === 400) {
-          return "Invalid request. Please try rephrasing your question.";
+          return "Invalid request format. Please try rephrasing your question.";
+        } else if (response.status === 403) {
+          return "Access denied. Please check your API key permissions.";
         } else {
-          return `DeepSeek API error (${response.status}). Please try again later.`;
+          return `API error (${response.status}): ${errorData.error?.message || 'Unknown error'}. Please try again later.`;
         }
       }
 
       const data = await response.json();
-      console.log('DeepSeek API response received successfully');
+      console.log('AI API response received successfully');
       
       const aiResponse = data.choices?.[0]?.message?.content;
       if (!aiResponse) {
-        console.error('No response content in DeepSeek API response');
+        console.error('No response content in AI API response');
         return "I received an empty response. Please try asking your question again.";
       }
 
       return aiResponse.trim();
       
     } catch (error) {
-      console.error('DeepSeek API Error:', error);
+      console.error('AI API Error:', error);
       
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
         return "Network error. Please check your internet connection and try again.";
       }
       
       // Return a contextual fallback response
-      if (userMessage.toLowerCase().includes('what') || userMessage.toLowerCase().includes('how') || userMessage.toLowerCase().includes('why')) {
-        return `That's a thoughtful question about "${userMessage}". I'm having some technical difficulties right now, but I'd be happy to help you explore this topic once I'm back online.`;
-      }
-      
-      return `I understand you're asking about "${userMessage}". I'm experiencing some technical issues right now, but I'd love to help you with this topic!`;
+      return `I'm experiencing technical difficulties right now. Please try again in a moment, or check if your API key is correctly configured.`;
     }
   };
 
   const generateBotResponse = async (userMessage) => {
-    // Check for basic greetings first
+    // First check for basic greetings
     const commonResponse = checkCommonQuestions(userMessage);
     if (commonResponse) {
+      console.log('Using common response for:', userMessage);
       return commonResponse;
     }
     
-    // For all other messages, call DeepSeek API
+    // For all other messages, call AI API
+    console.log('Calling AI API for:', userMessage);
     return await callAIAPI(userMessage);
   };
 
@@ -311,11 +287,17 @@ const SolaraChatbot = ({ siriGif, profilePic, backgroundImage, apiKey }) => {
                       <h1 className="text-white font-black text-2xl tracking-wider drop-shadow-lg whitespace-nowrap">
                         SOLARA
                       </h1>
+                      {/* API Status Indicator */}
+                      <div className={`px-2 py-1 rounded-full text-xs font-bold ${
+                        apiKey ? 'bg-green-400 text-green-900' : 'bg-red-400 text-red-900'
+                      }`}>
+                        {apiKey ? 'AI' : 'NO API'}
+                      </div>
                     </div>
                     <div className="flex items-center space-x-2">
                       <div className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse shadow-lg flex-shrink-0"></div>
                       <p className="text-white/95 text-sm font-semibold drop-shadow-lg truncate">
-                        Intelligent Assistant • Online Now
+                        Intelligent Assistant • {apiKey ? 'AI Ready' : 'Basic Mode'}
                       </p>
                     </div>
                   </div>
@@ -348,23 +330,52 @@ const SolaraChatbot = ({ siriGif, profilePic, backgroundImage, apiKey }) => {
               <>
                 {/* Messages area with custom background image */}
                 <div 
-                  className="flex-1 p-4 relative overflow-y-auto"
+                  className="flex-1 p-4 relative overflow-y-auto circuit-bg"
                   style={{
                     scrollbarWidth: 'none',
                     msOverflowStyle: 'none',
-                    backgroundImage: backgroundImage ? `url(${backgroundImage})` : `url('/images/your-default-background.jpg')`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat'
                   }}
                 >
-                  {/* Overlay for better text readability */}
-                  <div className="absolute inset-0 bg-white/70 backdrop-blur-sm"></div>
+                  {/* Circuit Animation Background */}
+                  <div className="absolute inset-0 opacity-5">
+                    <svg className="w-full h-full" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice">
+                      {/* Circuit paths */}
+                      <defs>
+                        <pattern id="circuit" patternUnits="userSpaceOnUse" width="80" height="60">
+                          {/* Horizontal lines */}
+                          <line x1="0" y1="15" x2="80" y2="15" stroke="#3b82f6" strokeWidth="1" className="circuit-line" />
+                          <line x1="0" y1="30" x2="80" y2="30" stroke="#8b5cf6" strokeWidth="1" className="circuit-line" />
+                          <line x1="0" y1="45" x2="80" y2="45" stroke="#06b6d4" strokeWidth="1" className="circuit-line" />
+                          
+                          {/* Vertical lines */}
+                          <line x1="20" y1="0" x2="20" y2="60" stroke="#3b82f6" strokeWidth="1" className="circuit-line" />
+                          <line x1="40" y1="0" x2="40" y2="60" stroke="#8b5cf6" strokeWidth="1" className="circuit-line" />
+                          <line x1="60" y1="0" x2="60" y2="60" stroke="#06b6d4" strokeWidth="1" className="circuit-line" />
+                          
+                          {/* Circuit nodes */}
+                          <circle cx="20" cy="15" r="2" fill="#3b82f6" className="circuit-node" />
+                          <circle cx="40" cy="30" r="2" fill="#8b5cf6" className="circuit-node" />
+                          <circle cx="60" cy="45" r="2" fill="#06b6d4" className="circuit-node" />
+                          
+                          {/* Circuit components */}
+                          <rect x="38" y="13" width="4" height="4" fill="#3b82f6" className="circuit-component" />
+                          <rect x="58" y="28" width="4" height="4" fill="#8b5cf6" className="circuit-component" />
+                          <rect x="18" y="43" width="4" height="4" fill="#06b6d4" className="circuit-component" />
+                        </pattern>
+                      </defs>
+                      <rect width="100%" height="100%" fill="url(#circuit)" />
+                      
+                      {/* Running data packets */}
+                      <circle r="3" fill="#3b82f6" className="data-packet packet-1" />
+                      <circle r="2" fill="#8b5cf6" className="data-packet packet-2" />
+                      <circle r="2.5" fill="#06b6d4" className="data-packet packet-3" />
+                    </svg>
+                  </div>
                   
                   {/* Hide scrollbar */}
                   <style dangerouslySetInnerHTML={{
                     __html: `
-                      .flex-1::-webkit-scrollbar {
+                      .circuit-bg::-webkit-scrollbar {
                         display: none;
                       }
                     `
@@ -456,7 +467,7 @@ const SolaraChatbot = ({ siriGif, profilePic, backgroundImage, apiKey }) => {
                 </div>
 
                 {/* FIXED Input area - No scroll, always visible */}
-                <div className="flex-shrink-0 p-4 bg-white border-t-2 border-indigo-100">
+                <div className="flex-shrink-0 p-4 bg-white/95 backdrop-blur-sm border-t-2 border-indigo-100">
                   <div className="flex items-end space-x-3">
                     <div className="flex-1 relative">
                       <textarea
@@ -488,6 +499,140 @@ const SolaraChatbot = ({ siriGif, profilePic, backgroundImage, apiKey }) => {
           </div>
         </div>
       )}
+
+      {/* Circuit Animation Styles */}
+      <style jsx>{`
+        .circuit-bg {
+          background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%);
+        }
+
+        .circuit-line {
+          stroke-dasharray: 20, 5;
+          animation: circuit-flow 3s linear infinite;
+        }
+
+        .circuit-node {
+          animation: node-pulse 2s ease-in-out infinite;
+        }
+
+        .circuit-component {
+          animation: component-blink 1.5s ease-in-out infinite;
+        }
+
+        .data-packet {
+          opacity: 0.8;
+        }
+
+        .packet-1 {
+          animation: packet-flow-1 4s linear infinite;
+        }
+
+        .packet-2 {
+          animation: packet-flow-2 5s linear infinite;
+        }
+
+        .packet-3 {
+          animation: packet-flow-3 6s linear infinite;
+        }
+
+        @keyframes circuit-flow {
+          0% {
+            stroke-dashoffset: 0;
+          }
+          100% {
+            stroke-dashoffset: 25;
+          }
+        }
+
+        @keyframes node-pulse {
+          0%, 100% {
+            opacity: 0.6;
+            r: 2;
+          }
+          50% {
+            opacity: 1;
+            r: 3;
+          }
+        }
+
+        @keyframes component-blink {
+          0%, 70%, 100% {
+            opacity: 0.6;
+          }
+          35% {
+            opacity: 1;
+          }
+        }
+
+        @keyframes packet-flow-1 {
+          0% {
+            cx: 0;
+            cy: 15;
+          }
+          25% {
+            cx: 100;
+            cy: 15;
+          }
+          50% {
+            cx: 100;
+            cy: 45;
+          }
+          75% {
+            cx: 200;
+            cy: 45;
+          }
+          100% {
+            cx: 400;
+            cy: 45;
+          }
+        }
+
+        @keyframes packet-flow-2 {
+          0% {
+            cx: 0;
+            cy: 30;
+          }
+          33% {
+            cx: 150;
+            cy: 30;
+          }
+          66% {
+            cx: 150;
+            cy: 60;
+          }
+          100% {
+            cx: 400;
+            cy: 60;
+          }
+        }
+
+        @keyframes packet-flow-3 {
+          0% {
+            cx: 0;
+            cy: 45;
+          }
+          20% {
+            cx: 80;
+            cy: 45;
+          }
+          40% {
+            cx: 80;
+            cy: 15;
+          }
+          60% {
+            cx: 200;
+            cy: 15;
+          }
+          80% {
+            cx: 200;
+            cy: 60;
+          }
+          100% {
+            cx: 400;
+            cy: 60;
+          }
+        }
+      `}</style>
     </>
   );
 };
