@@ -61,7 +61,7 @@ const Navbar = () => {
             className="cursor-pointer transition-all duration-300 hover:scale-110"
             onClick={() => scrollTo('home')}
           >
-            <div className="relative h-8 w-32 overflow-hidden">
+            <div className="relative h-8 w-36 sm:w-40 overflow-hidden">
               {nameVariations.map((name, index) => (
                 <div
                   key={name}
