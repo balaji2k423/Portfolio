@@ -38,30 +38,39 @@ const About = () => {
 
   // Handle body scroll when modal opens/closes
   useEffect(() => {
-  let scrollY = 0;
-
   if (showResume) {
-    scrollY = window.scrollY;
-    document.body.classList.add('modal-open');
+    const scrollY = window.scrollY;
     document.body.style.position = 'fixed';
     document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
     document.body.style.width = '100%';
-  } else {
-    const y = document.body.style.top;
-    document.body.classList.remove('modal-open');
+    document.body.style.overflowY = 'scroll';
+    document.documentElement.dataset.scrollY = scrollY.toString();
+  } educativo
+
+  if (!showResume) {
+    const scrollY = document.documentElement.dataset.scrollY || '0';
+    const y = parseInt(scrollY, 10);
+
     document.body.style.position = '';
     document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
     document.body.style.width = '';
-    // restore scroll position safely
-    window.scrollTo(0, -parseInt(y || '0'));
+    document.body.style.overflowY = '';
+
+    window.scrollTo(0, y);
   }
 
-  // cleanup when unmounting
   return () => {
-    document.body.classList.remove('modal-open');
     document.body.style.position = '';
     document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
     document.body.style.width = '';
+    document.body.style.overflowY = '';
+    delete document.documentElement.dataset.scrollY;
   };
 }, [showResume]);
 
