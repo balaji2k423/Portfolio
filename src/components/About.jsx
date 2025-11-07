@@ -38,29 +38,33 @@ const About = () => {
 
   // Handle body scroll when modal opens/closes
   useEffect(() => {
-    if (showResume) {
-      document.body.classList.add('modal-open');
-      // Prevent auto-scroll by maintaining current scroll position
-      const scrollY = window.scrollY;
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = '100%';
-    } else {
-      document.body.classList.remove('modal-open');
-      const scrollY = document.body.style.top;
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      window.scrollTo(0, parseInt(scrollY || '0') * -1);
-    }
+  let scrollY = 0;
 
-    return () => {
-      document.body.classList.remove('modal-open');
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-    };
-  }, [showResume]);
+  if (showResume) {
+    scrollY = window.scrollY;
+    document.body.classList.add('modal-open');
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+  } else {
+    const y = document.body.style.top;
+    document.body.classList.remove('modal-open');
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.width = '';
+    // restore scroll position safely
+    window.scrollTo(0, -parseInt(y || '0'));
+  }
+
+  // cleanup when unmounting
+  return () => {
+    document.body.classList.remove('modal-open');
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.width = '';
+  };
+}, [showResume]);
+
 
   const handleResumeDownload = () => {
     // Replace with your actual resume URL
